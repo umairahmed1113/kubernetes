@@ -1,0 +1,71 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-deployment
+  labels:
+    app: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+        - name: backend
+          image: node:18-alpine
+          command: ["node", "-e"]
+          args:
+            - >
+              const http=require('http');
+              http.createServer((req,res)=>{
+                if (req.url === '/health') {
+                  res.writeHead(200, {'Content-Type':'application/json'});
+                  return res.end(JSON.stringify({status:'ok'}));
+                }
+                res.writeHead(200, {'Content-Type':'application/json'});
+                res.end(JSON.stringify({message:'Hello from Backend'}));
+              }).listen(5000, '0.0.0.0');
+          ports:
+            - containerPort: 5000
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "300m"
+              memory: "256Mi"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+            successThreshold: 1
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            timeoutSeconds: 2
+            failureThreshold: 3
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-service
+spec:
+  type: ClusterIP
+  selector:
+    app: backend
+  ports:
+    - protocol: TCP
+      port: 5000
+      targetPort: 5000
